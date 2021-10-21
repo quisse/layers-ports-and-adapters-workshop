@@ -1,14 +1,13 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MeetupOrganizing\Controller;
 
 use Assert\Assert;
 use Exception;
-use MeetupOrganizing\Entity\Meetup;
-use MeetupOrganizing\Entity\MeetupRepository;
 use MeetupOrganizing\Entity\ScheduledDate;
-use MeetupOrganizing\Entity\UserId;
+use MeetupOrganizing\Service\MeetupScheduler;
 use MeetupOrganizing\Session;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -19,24 +18,25 @@ use Zend\Expressive\Template\TemplateRendererInterface;
 final class ScheduleMeetupController
 {
     private Session $session;
-
+    
     private TemplateRendererInterface $renderer;
-
+    
     private RouterInterface $router;
-    private MeetupRepository $meetupRepository;
+    
+    private MeetupScheduler $meetupScheduler;
     
     public function __construct(
         Session $session,
         TemplateRendererInterface $renderer,
         RouterInterface $router,
-        MeetupRepository $meetupRepository
+        MeetupScheduler $meetupScheduler
     ) {
         $this->session = $session;
         $this->renderer = $renderer;
         $this->router = $router;
-        $this->meetupRepository = $meetupRepository;
+        $this->meetupScheduler = $meetupScheduler;
     }
-
+    
     public function __invoke(
         ServerRequestInterface $request,
         ResponseInterface $response,
@@ -45,13 +45,14 @@ final class ScheduleMeetupController
         $formErrors = [];
         $formData = [
             // This is a nice place to set some defaults
-            'scheduleForTime' => '20:00'
+            'scheduleForTime' => '20:00',
         ];
-
+        
         if ($request->getMethod() === 'POST') {
             $formData = $request->getParsedBody();
-            Assert::that($formData)->isArray();
-
+            Assert::that($formData)
+                ->isArray();
+            
             if (empty($formData['name'])) {
                 $formErrors['name'][] = 'Provide a name';
             }
@@ -65,45 +66,38 @@ final class ScheduleMeetupController
             } catch (Exception $exception) {
                 $formErrors['scheduleFor'][] = 'Invalid date/time';
             }
-
+            
             if (empty($formErrors)) {
-    
-                $meetup = new Meetup(
-                    UserId::fromInt(
-                        (int)$this->session->getLoggedInUser()
-                            ->userId()
-                            ->asInt()
-                    ),
+                $meetupId = $this->meetupScheduler->schedule(
+                    $this->session->getLoggedInUser()
+                        ->userId()
+                        ->asInt(),
                     $formData['name'],
                     $formData['description'],
-                    ScheduledDate::fromString($formData['scheduleForDate'] . ' ' . $formData['scheduleForTime'])
+                    $formData['scheduleForDate'] . ' ' . $formData['scheduleForTime']
                 );
-    
-                $this->meetupRepository->save($meetup);
-
+                
                 $this->session->addSuccessFlash('Your meetup was scheduled successfully');
-
+                
                 return new RedirectResponse(
                     $this->router->generateUri(
                         'meetup_details',
                         [
-                            'id' => $meetup->getId()
+                            'id' => $meetupId,
                         ]
                     )
                 );
             }
         }
-
-        $response->getBody()->write(
-            $this->renderer->render(
-                'schedule-meetup.html.twig',
-                [
+        
+        $response->getBody()
+            ->write(
+                $this->renderer->render('schedule-meetup.html.twig', [
                     'formData' => $formData,
-                    'formErrors' => $formErrors
-                ]
-            )
-        );
-
+                    'formErrors' => $formErrors,
+                ])
+            );
+        
         return $response;
     }
 }

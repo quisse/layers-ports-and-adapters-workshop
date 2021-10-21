@@ -16,10 +16,12 @@ final class MeetupRepository
         $this->connection = $connection;
     }
     
-    public function save(Meetup $meetup): void
+    public function save(Meetup $meetup): Meetup
     {
         $this->connection->insert('meetups', $meetup->getData());
         $meetupId= (int)$this->connection->lastInsertId();
-        $meetup->setId($meetupId);
+        $new = clone $meetup;
+        $new->setId($meetupId);
+        return $new;
     }
 }

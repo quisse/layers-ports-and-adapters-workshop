@@ -21,6 +21,7 @@ use MeetupOrganizing\Entity\UserRepository;
 use MeetupOrganizing\Resources\Views\FlashExtension;
 use MeetupOrganizing\Resources\Views\TwigTemplates;
 use MeetupOrganizing\Resources\Views\UserExtension;
+use MeetupOrganizing\Service\MeetupScheduler;
 use Psr\Http\Message\RequestInterface;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\Mailer\Mailer;
@@ -208,6 +209,10 @@ final class ServiceContainer extends Container
                 $this[Connection::class]
             );
         };
+        
+        $this[MeetupScheduler::class] = function () {
+            return new MeetupScheduler($this[MeetupRepository::class]);
+        };
 
         /*
          * Controllers
@@ -223,7 +228,7 @@ final class ServiceContainer extends Container
                 $this[Session::class],
                 $this[TemplateRendererInterface::class],
                 $this[RouterInterface::class],
-                $this[MeetupRepository::class]
+                $this[MeetupScheduler::class]
             );
         };
         $this[CancelMeetupController::class] = function () {
@@ -271,7 +276,7 @@ final class ServiceContainer extends Container
         };
 
         $this[ScheduleMeetupCommand::class] = function () {
-            return new ScheduleMeetupCommand($this[MeetupRepository::class]);
+            return new ScheduleMeetupCommand($this[MeetupScheduler::class]);
         };
 
         $this->bootstrap();
