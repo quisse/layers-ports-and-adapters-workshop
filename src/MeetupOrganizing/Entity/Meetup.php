@@ -5,6 +5,8 @@ declare(strict_types=1);
 
 namespace MeetupOrganizing\Entity;
 
+use Assert\Assertion;
+
 final class Meetup
 {
     private ?int $id;
@@ -13,9 +15,17 @@ final class Meetup
     private string $description;
     private ScheduledDate $scheduledFor;
     private bool $wasCancelled = false;
-    
-    public function __construct(UserId $organizerId, string $name, string $description, ScheduledDate $scheduledFor)
-    {
+
+    public function __construct(
+        UserId $organizerId,
+        string $name,
+        string $description,
+        ScheduledDate $scheduledFor
+    ) {
+        Assertion::notEmpty($name);
+        Assertion::notEmpty($description);
+        Assertion::true($scheduledFor->isInTheFuture(new \DateTimeImmutable()));
+        
         $this->organizerId = $organizerId;
         $this->name = $name;
         $this->description = $description;
