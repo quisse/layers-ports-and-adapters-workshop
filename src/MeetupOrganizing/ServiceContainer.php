@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MeetupOrganizing;
@@ -23,13 +24,13 @@ use MeetupOrganizing\Resources\Views\TwigTemplates;
 use MeetupOrganizing\Resources\Views\UserExtension;
 use MeetupOrganizing\Service\MeetupScheduler;
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\Mailer\Mailer;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mailer\Transport;
-use Xtreamwayz\Pimple\Container;
-use Psr\Http\Message\ResponseInterface;
 use Throwable;
+use Xtreamwayz\Pimple\Container;
 use Zend\Expressive\Application;
 use Zend\Expressive\Container\ApplicationFactory;
 use Zend\Expressive\Helper\ServerUrlHelper;
@@ -44,75 +45,74 @@ final class ServiceContainer extends Container
 {
     public function __construct(string $projectRootDir)
     {
-        Assert::that($projectRootDir)->directory();
-
-        parent::__construct(
-            [
-                'project_root_dir' => $projectRootDir
-            ]
-        );
-
+        Assert::that($projectRootDir)
+            ->directory();
+        
+        parent::__construct([
+                                'project_root_dir' => $projectRootDir,
+                            ]);
+        
         /*
          * Not a best practice for containers, but hey.
          */
         Debug::enable();
-
+        
         $this['config'] = function () {
             return [
                 'debug' => true,
                 'templates' => [
                     'extension' => 'html.twig',
                     'paths' => [
-                        TwigTemplates::getPath()
-                    ]
+                        TwigTemplates::getPath(),
+                    ],
                 ],
                 'twig' => [
                     'extensions' => [
                         $this[UserExtension::class],
-                        $this[FlashExtension::class]
-                    ]
+                        $this[FlashExtension::class],
+                    ],
                 ],
                 'routes' => [
                     [
                         'name' => 'list_meetups',
                         'path' => '/',
                         'middleware' => ListMeetupsController::class,
-                        'allowed_methods' => ['GET']
+                        'allowed_methods' => ['GET'],
                     ],
                     [
                         'name' => 'meetup_details',
                         'path' => '/meetup/{id}',
                         'middleware' => MeetupDetailsController::class,
-                        'allowed_methods' => ['GET']
+                        'allowed_methods' => ['GET'],
                     ],
                     [
                         'name' => 'schedule_meetup',
                         'path' => '/schedule-meetup',
                         'middleware' => ScheduleMeetupController::class,
-                        'allowed_methods' => ['GET', 'POST']
+                        'allowed_methods' => ['GET', 'POST'],
                     ],
                     [
                         'name' => 'cancel_meetup',
                         'path' => '/cancel-meetup',
                         'middleware' => CancelMeetupController::class,
-                        'allowed_methods' => ['POST']
+                        'allowed_methods' => ['POST'],
                     ],
                     [
                         'name' => 'switch_user',
                         'path' => '/switch-user',
                         'middleware' => SwitchUserController::class,
-                        'allowed_methods' => ['POST']
+                        'allowed_methods' => ['POST'],
                     ],
                     [
                         'name' => 'rsvp_for_meetup',
                         'path' => '/rsvp-for-meetup',
                         'middleware' => RsvpForMeetupController::class,
-                        'allowed_methods' => ['POST']
-                    ]
-                ]
+                        'allowed_methods' => ['POST'],
+                    ],
+                ],
             ];
         };
-
+        
         /*
          * Zend Expressive Application
          */
@@ -125,41 +125,36 @@ final class ServiceContainer extends Container
                 if ($err instanceof Throwable) {
                     throw $err;
                 }
-
+                
                 return $this[TemplatedErrorHandler::class]($request, $response, $err);
             };
         };
         $this[TemplatedErrorHandler::class] = function () {
             return new TemplatedErrorHandler(
-                $this[TemplateRendererInterface::class],
-                'error404.html.twig',
-                'error.html.twig'
+                $this[TemplateRendererInterface::class], 'error404.html.twig', 'error.html.twig'
             );
         };
         $this[RouterInterface::class] = function () {
             return new FastRouteRouter();
         };
         $this[Application::class] = new ApplicationFactory();
-
+        
         $this[EventDispatcher::class] = function () {
             $eventDispatcher = new ConfigurableEventDispatcher();
-
-            $eventDispatcher->registerSpecificListener(
-                UserHasRsvpd::class,
-                function () {
-                    $this[Session::class]->addSuccessFlash('You have successfully RSVP-ed to this meetup');
-                }
-            );
-
+            
+            $eventDispatcher->registerSpecificListener(UserHasRsvpd::class, function () {
+                $this[Session::class]->addSuccessFlash('You have successfully RSVP-ed to this meetup');
+            });
+            
             return $eventDispatcher;
         };
-
+        
         $this[MailerInterface::class] = function () {
             return new Mailer(
                 Transport::fromDsn('smtp://mailhog:1025')
             );
         };
-
+        
         /*
          * Templating
          */
@@ -172,8 +167,7 @@ final class ServiceContainer extends Container
         };
         $this[UserExtension::class] = function () {
             return new UserExtension(
-                $this[Session::class],
-                $this[UserRepository::class]
+                $this[Session::class], $this[UserRepository::class]
             );
         };
         $this[FlashExtension::class] = function () {
@@ -185,21 +179,23 @@ final class ServiceContainer extends Container
          * Persistence
          */
         $this[Connection::class] = function () {
-            return DriverManager::getConnection(
-                [
-                    'driver' => 'pdo_sqlite',
-                    'path' => $this['project_root_dir'] . '/var/app.sqlite'
-                ]
-            );
+            return DriverManager::getConnection([
+                                                    'driver' => 'pdo_sqlite',
+                                                    'path' => $this['project_root_dir'] . '/var/app.sqlite',
+                                                ]);
         };
         $this[SchemaManager::class] = function () {
             return new SchemaManager($this[Connection::class]);
         };
-
-        $this[MeetupRepository::class]= function (){
+        
+        $this[MeetupRepository::class] = function () {
             return new MeetupRepository(
-                $this[Connection::class]
+                $this[Connection::class], $this[Clock::class]
             );
+        };
+        
+        $this[Clock::class] = function () {
+            return new Clock();
         };
         $this[UserRepository::class] = function () {
             return new UserRepository();
@@ -211,9 +207,9 @@ final class ServiceContainer extends Container
         };
         
         $this[MeetupScheduler::class] = function () {
-            return new MeetupScheduler($this[MeetupRepository::class]);
+            return new MeetupScheduler($this[MeetupRepository::class], $this[UserRepository::class]);
         };
-
+        
         /*
          * Controllers
          */
@@ -222,7 +218,7 @@ final class ServiceContainer extends Container
                 $this[UserRepository::class]
             );
         };
-
+        
         $this[ScheduleMeetupController::class] = function () {
             return new ScheduleMeetupController(
                 $this[Session::class],
@@ -233,15 +229,12 @@ final class ServiceContainer extends Container
         };
         $this[CancelMeetupController::class] = function () {
             return new CancelMeetupController(
-                $this[Connection::class],
-                $this[Session::class],
-                $this[RouterInterface::class]
+                $this[Connection::class], $this[Session::class], $this[RouterInterface::class]
             );
         };
         $this[ListMeetupsController::class] = function () {
             return new ListMeetupsController(
-                $this[Connection::class],
-                $this[TemplateRendererInterface::class]
+                $this[MeetupRepository::class], $this[TemplateRendererInterface::class]
             );
         };
         $this[MeetupDetailsController::class] = function () {
@@ -254,8 +247,7 @@ final class ServiceContainer extends Container
         };
         $this[SwitchUserController::class] = function () {
             return new SwitchUserController(
-                $this[UserRepository::class],
-                $this[Session::class]
+                $this[UserRepository::class], $this[Session::class]
             );
         };
         $this[RsvpForMeetupController::class] = function () {
@@ -267,21 +259,21 @@ final class ServiceContainer extends Container
                 $this[EventDispatcher::class]
             );
         };
-
+        
         /*
          * CLI
          */
         $this[ConsoleApplication::class] = function () {
             return new ConsoleApplication($this);
         };
-
+        
         $this[ScheduleMeetupCommand::class] = function () {
             return new ScheduleMeetupCommand($this[MeetupScheduler::class]);
         };
-
+        
         $this->bootstrap();
     }
-
+    
     private function bootstrap(): void
     {
         $this[SchemaManager::class]->updateSchema();
