@@ -4,7 +4,10 @@ declare(strict_types=1);
 namespace MeetupOrganizing\Command;
 
 use Assert\Assert;
-use Doctrine\DBAL\Connection;
+use MeetupOrganizing\Entity\Meetup;
+use MeetupOrganizing\Entity\MeetupRepository;
+use MeetupOrganizing\Entity\ScheduledDate;
+use MeetupOrganizing\Entity\UserId;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -12,13 +15,13 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 final class ScheduleMeetupCommand extends Command
 {
-    private Connection $connection;
-
-    public function __construct(Connection $connection)
+    
+    private MeetupRepository $meetupRepository;
+    
+    public function __construct(MeetupRepository $meetupRepository)
     {
         parent::__construct();
-
-        $this->connection = $connection;
+        $this->meetupRepository = $meetupRepository;
     }
 
     protected function configure(): void
@@ -46,15 +49,16 @@ final class ScheduleMeetupCommand extends Command
 
         $scheduledFor = $input->getArgument('scheduledFor');
         Assert::that($scheduledFor)->string();
-
-        $record = [
-            'organizerId' => (int)$organizerId,
-            'name' => $name,
-            'description' => $description,
-            'scheduledFor' => $scheduledFor
-        ];
-
-        $this->connection->insert('meetups', $record);
+    
+        $meetup = new Meetup(
+            UserId::fromInt((int)$organizerId),
+            $name,
+            $description,
+            ScheduledDate::fromString($scheduledFor)
+        );
+        
+        $this->meetupRepository->save($meetup);
+        
 
         $output->writeln('<info>Scheduled the meetup successfully</info>');
 

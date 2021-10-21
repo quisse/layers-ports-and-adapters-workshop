@@ -4,9 +4,11 @@ declare(strict_types=1);
 namespace MeetupOrganizing\Controller;
 
 use Assert\Assert;
-use Doctrine\DBAL\Connection;
 use Exception;
+use MeetupOrganizing\Entity\Meetup;
+use MeetupOrganizing\Entity\MeetupRepository;
 use MeetupOrganizing\Entity\ScheduledDate;
+use MeetupOrganizing\Entity\UserId;
 use MeetupOrganizing\Session;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -21,19 +23,18 @@ final class ScheduleMeetupController
     private TemplateRendererInterface $renderer;
 
     private RouterInterface $router;
-
-    private Connection $connection;
-
+    private MeetupRepository $meetupRepository;
+    
     public function __construct(
         Session $session,
         TemplateRendererInterface $renderer,
         RouterInterface $router,
-        Connection $connection
+        MeetupRepository $meetupRepository
     ) {
         $this->session = $session;
         $this->renderer = $renderer;
         $this->router = $router;
-        $this->connection = $connection;
+        $this->meetupRepository = $meetupRepository;
     }
 
     public function __invoke(
@@ -66,16 +67,19 @@ final class ScheduleMeetupController
             }
 
             if (empty($formErrors)) {
-                $record = [
-                    'organizerId' => $this->session->getLoggedInUser()->userId()->asInt(),
-                    'name' => $formData['name'],
-                    'description' => $formData['description'],
-                    'scheduledFor' => $formData['scheduleForDate'] . ' ' . $formData['scheduleForTime'],
-                    'wasCancelled' => 0
-                ];
-                $this->connection->insert('meetups', $record);
-
-                $meetupId = (int)$this->connection->lastInsertId();
+    
+                $meetup = new Meetup(
+                    UserId::fromInt(
+                        (int)$this->session->getLoggedInUser()
+                            ->userId()
+                            ->asInt()
+                    ),
+                    $formData['name'],
+                    $formData['description'],
+                    ScheduledDate::fromString($formData['scheduleForDate'] . ' ' . $formData['scheduleForTime'])
+                );
+    
+                $this->meetupRepository->save($meetup);
 
                 $this->session->addSuccessFlash('Your meetup was scheduled successfully');
 
@@ -83,7 +87,7 @@ final class ScheduleMeetupController
                     $this->router->generateUri(
                         'meetup_details',
                         [
-                            'id' => $meetupId
+                            'id' => $meetup->getId()
                         ]
                     )
                 );
