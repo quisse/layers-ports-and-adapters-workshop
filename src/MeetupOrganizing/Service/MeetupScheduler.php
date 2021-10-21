@@ -10,23 +10,28 @@ use MeetupOrganizing\Entity\Meetup;
 use MeetupOrganizing\Entity\MeetupRepository;
 use MeetupOrganizing\Entity\ScheduledDate;
 use MeetupOrganizing\Entity\UserId;
+use MeetupOrganizing\Entity\UserRepository;
+use MeetupOrganizing\ScheduleMeetup;
 
 final class MeetupScheduler
 {
     private MeetupRepository $meetupRepository;
+    private UserRepository $userRepository;
     
-    public function __construct(MeetupRepository $meetupRepository)
+    public function __construct(MeetupRepository $meetupRepository, UserRepository $userRepository)
     {
         $this->meetupRepository = $meetupRepository;
+        $this->userRepository = $userRepository;
     }
     
-    public function schedule(int $organizerId, string $name, string $description, string $scheduledFor): int
+    public function schedule(ScheduleMeetup $command): int
     {
+        $user = $this->userRepository->getById($command->organizerId());
         $meetup = new Meetup(
-            UserId::fromInt($organizerId),
-            $name,
-            $description,
-            ScheduledDate::fromString($scheduledFor)
+            $user->userId(),
+            $command->name(),
+            $command->description(),
+            $command->scheduledFor()
         );
     
         $meetup = $this->meetupRepository->save($meetup);

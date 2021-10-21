@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MeetupOrganizing\Command;
 
 use Assert\Assert;
+use MeetupOrganizing\ScheduleMeetup;
 use MeetupOrganizing\Service\MeetupScheduler;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -20,7 +22,7 @@ final class ScheduleMeetupCommand extends Command
         parent::__construct();
         $this->meetupScheduler = $meetupScheduler;
     }
-
+    
     protected function configure(): void
     {
         $this->setName('schedule')
@@ -30,27 +32,33 @@ final class ScheduleMeetupCommand extends Command
             ->addArgument('description', InputArgument::REQUIRED, 'Description of the meetup')
             ->addArgument('scheduledFor', InputArgument::REQUIRED, 'Scheduled for');
     }
-
+    
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // InputInterface isn't particularly well-typed, so we need to add some checks
         $organizerId = $input->getArgument('organizerId');
-        Assert::that($organizerId)->string();
-
-
+        Assert::that($organizerId)
+            ->string();
+        
+        
         $name = $input->getArgument('name');
-        Assert::that($name)->string();
-
+        Assert::that($name)
+            ->string();
+        
         $description = $input->getArgument('description');
-        Assert::that($description)->string();
-
+        Assert::that($description)
+            ->string();
+        
         $scheduledFor = $input->getArgument('scheduledFor');
-        Assert::that($scheduledFor)->string();
-    
-        $this->meetupScheduler->schedule((int)$organizerId, $name, $description, $scheduledFor);
-
+        Assert::that($scheduledFor)
+            ->string();
+        
+        $this->meetupScheduler->schedule(
+            new ScheduleMeetup((int)$organizerId, $name, $description, $scheduledFor)
+        );
+        
         $output->writeln('<info>Scheduled the meetup successfully</info>');
-
+        
         return 0;
     }
 }
