@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace MeetupOrganizing\Entity;
 
 use DateTimeImmutable;
+use MeetupOrganizing\Domain\ScheduledDate;
 use PHPUnit\Framework\TestCase;
 
 final class ScheduledDateTest extends TestCase
